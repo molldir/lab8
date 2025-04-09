@@ -1,11 +1,16 @@
 package com.example.lab8
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import android.widget.Button
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat.registerReceiver
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 class MainActivity : AppCompatActivity() {
@@ -28,4 +33,16 @@ class MainActivity : AppCompatActivity() {
             stopService(serviceIntent)
         }
     }
+    private val receiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val char = intent.getCharExtra("char", '?')
+            findViewById<EditText>(R.id.editText_randomCharacter).setText(char.toString())
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        registerReceiver(receiver, IntentFilter("RANDOM_CHAR_ACTION"))
+    }
+
 }

@@ -14,6 +14,12 @@ class RandomCharacterService : Service() {
             while (true) {
                 Thread.sleep(1000)
                 Log.d("Service", "Generated: A") // Заглушка
+
+                // Добавляем здесь broadcast
+                val intent = Intent("RANDOM_CHAR_ACTION").apply {
+                    putExtra("char", 'A') // Пока заглушка
+                }
+                sendBroadcast(intent)
             }
         }.start()
 
