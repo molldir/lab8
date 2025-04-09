@@ -1,59 +1,95 @@
 package com.example.lab8
-
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.MediaPlayer
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
-import android.widget.Toast
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat.registerReceiver
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+
 class MainActivity : AppCompatActivity() {
+    private lateinit var randomCharacterEditText: EditText
+    private lateinit var broadcastReceiver: BroadcastReceiver
+    private lateinit var serviceIntent: Intent
+    private lateinit var mediaPlayer: MediaPlayer
+    private lateinit var buttonStopMusic: Button
+
+    companion object {
+        const val ACTION_TAG = "my.custom.action.tag.lab6"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        findViewById<Button>(R.id.button_start).setOnClickListener {
-            // Заглушка для теста
-            Toast.makeText(this, "Start clicked", Toast.LENGTH_SHORT).show()
-        }
-        // Добавляем в onCreate
-        val serviceIntent = Intent(this, RandomCharacterService::class.java)
+        randomCharacterEditText = findViewById(R.id.editText_randomCharacter)
+        val startButton: Button = findViewById(R.id.button_start)
+        val endButton: Button = findViewById(R.id.button_end)
+        val musicButton: Button = findViewById(R.id.button_music)
+        buttonStopMusic = findViewById(R.id.button_stop_music)
 
-        findViewById<Button>(R.id.button_start).setOnClickListener {
-            startService(serviceIntent)
-        }
+        serviceIntent = Intent(this, RandomCharacterService::class.java)
 
-        findViewById<Button>(R.id.button_end).setOnClickListener {
-            stopService(serviceIntent)
-        }
-        val musicIntent = Intent(this, MyService::class.java)
-        findViewById<Button>(R.id.button_music).setOnClickListener {
-            startService(musicIntent)
-        }
-        findViewById<Button>(R.id.button_stop_music).setOnClickListener {
-            stopService(musicIntent)
+        startButton.setOnClickListener(::onClick)
+        endButton.setOnClickListener(::onClick)
+        musicButton.setOnClickListener(::onClickMusic)
+        buttonStopMusic.setOnClickListener(::onClickStopMusic)
+
+        broadcastReceiver = MyBroadcastReceiver()
+
+        mediaPlayer = MediaPlayer.create(this, R.raw.song)
+    }
+
+    fun onClick(view: View) {
+        when (view.id) {
+            R.id.button_start -> startService(serviceIntent)
+            R.id.button_end -> {
+                stopService(serviceIntent)
+                randomCharacterEditText.text = null
+            }
         }
     }
 
-}
+    fun onClickMusic(view: View) {
+        if (!mediaPlayer.isPlaying) {
+            mediaPlayer.start()
+        }
+    }
 
-
-    private val receiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val char = intent.getCharExtra("char", '?')
-            findViewById<EditText>(R.id.editText_randomCharacter).setText(char.toString())
+    fun onClickStopMusic(view: View) {
+        if (mediaPlayer.isPlaying) {
+            mediaPlayer.stop()
+            mediaPlayer.prepareAsync()
         }
     }
 
     override fun onStart() {
         super.onStart()
-        registerReceiver(receiver, IntentFilter("RANDOM_CHAR_ACTION"))
+        val intentFilter = IntentFilter(ACTION_TAG).apply {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                priority = 0
+            }
+        }
+        registerReceiver(broadcastReceiver, intentFilter, Context.RECEIVER_EXPORTED)
     }
 
+    override fun onStop() {
+        super.onStop()
+        unregisterReceiver(broadcastReceiver)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        mediaPlayer.release()
+    }
+
+    inner class MyBroadcastReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val data = intent.getCharExtra("randomCharacter", '?')
+            randomCharacterEditText.text = data.toString()
+        }
+    }
 }
