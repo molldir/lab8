@@ -32,7 +32,18 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.button_end).setOnClickListener {
             stopService(serviceIntent)
         }
+        val musicIntent = Intent(this, MyService::class.java)
+        findViewById<Button>(R.id.button_music).setOnClickListener {
+            startService(musicIntent)
+        }
+        findViewById<Button>(R.id.button_stop_music).setOnClickListener {
+            stopService(musicIntent)
+        }
     }
+
+}
+
+
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val char = intent.getCharExtra("char", '?')
