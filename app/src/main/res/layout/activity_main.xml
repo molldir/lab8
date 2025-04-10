@@ -1,17 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
-    android:gravity="center">
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="16dp">
 
-    <ImageView
-        android:id="@+id/imageView"
-        android:layout_width="192dp"
-        android:layout_height="79dp"
-        app:srcCompat="@drawable/ic_music" />
+
+
 
     <EditText
         android:id="@+id/editText_randomCharacter"
@@ -21,32 +18,66 @@
         android:enabled="false"
         android:gravity="center"
         android:hint="Random character"
-        android:textSize="24sp"
-        android:textColor="@color/black"/>
+        android:textColor="@color/black"
+        android:textSize="24sp" />
+
     <Button
         android:id="@+id/button_start"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Start Service"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="16dp"
+        android:text="Start Service" />
+
 
     <Button
         android:id="@+id/button_end"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Stop Service"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="16dp"
+        android:text="Stop Service" />
+
     <Button
         android:id="@+id/button_music"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Start Music"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="16dp"
+        android:text="Start Music" />
+
     <Button
         android:id="@+id/button_stop_music"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Stop Music"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="16dp"
+        android:text="Stop Music" />
+
 
 </LinearLayout>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

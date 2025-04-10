@@ -1,134 +1,110 @@
 package com.example.lab8
+
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
-import android.content.res.AssetFileDescriptor
+import android.content.pm.ServiceInfo
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
-import android.widget.Toast
 import androidx.core.app.NotificationCompat
 
 class MyService : Service() {
-    private var soundPlayer: MediaPlayer? = null
-    private var notificationManager: NotificationManager? = null
+    private var mediaPlayer: MediaPlayer? = null
+    private lateinit var notificationManager: NotificationManager
 
     companion object {
-        const val CHANNEL_ID = "foreground_service_channel"
-        private const val NOTIFICATION_ID = 1
+        const val CHANNEL_ID = "music_player_channel"
+        const val NOTIFICATION_ID = 101
+        const val ACTION_STOP = "STOP_MUSIC"
     }
 
     override fun onCreate() {
         super.onCreate()
-        initializeMediaPlayer()
-    }
-
-    private fun initializeMediaPlayer() {
-        try {
-            val afd: AssetFileDescriptor = resources.openRawResourceFd(R.raw.song)
-                ?: throw IllegalStateException("Аудио файл не найден в res/raw.")
-
-            soundPlayer = MediaPlayer().apply {
-                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                afd.close()
-                prepare()
-                isLooping = true
-                start()
-            }
-            Log.i("MyService", "Медиаплеер инициализирован. Длительность = ${soundPlayer?.duration}")
-        } catch (e: Exception) {
-            handleMediaPlayerError(e)
-        }
-    }
-
-    private fun handleMediaPlayerError(e: Exception) {
-        Log.e("MyService", "Ошибка инициализации MediaPlayer", e)
-        Toast.makeText(this, "Ошибка запуска музыки", Toast.LENGTH_SHORT).show()
-        stopSelf()
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        showServiceStartedMessage()
-        startForegroundService()
-        handleStopCommand(intent)
-        return START_STICKY
-    }
-
-    private fun showServiceStartedMessage() {
-        Toast.makeText(this, "Сервис запущен", Toast.LENGTH_SHORT).show()
-        Log.i("MyService", "Сервис запущен...")
-    }
-
-    private fun startForegroundService() {
+        notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannel()
-        val notification = buildNotification()
-        startForeground(NOTIFICATION_ID, notification)
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
+            NotificationChannel(
                 CHANNEL_ID,
-                "Сервис воспроизведения музыки",
-                NotificationManager.IMPORTANCE_DEFAULT
+                "Music Player",
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Канал для воспроизведения музыки"
+                description = "Channel for music playback"
+                setSound(null, null)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                notificationManager.createNotificationChannel(this)
             }
-            notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager?.createNotificationChannel(channel)
         }
     }
 
-    private fun buildNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(R.drawable.music_icon)
-        .setContentTitle("Музыкальный сервис")
-        .setContentText("Идет воспроизведение музыки...")
-        .setOngoing(true)
-        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-        .build()
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_STOP -> stopMusic()
+            else -> startMusic()
+        }
+        return START_STICKY
+    }
 
-    private fun handleStopCommand(intent: Intent?) {
-        if (intent?.action == "STOP_MUSIC") {
-            stopMusic()
+    private fun startMusic() {
+        try {
+            if (mediaPlayer == null) {
+                mediaPlayer = MediaPlayer().apply {
+                    setDataSource(applicationContext,
+                        Uri.parse("android.resource://$packageName/${R.raw.top_song}"))
+                    setOnPreparedListener {
+                        start()
+                        showNotification("Now playing")
+                    }
+                    setOnErrorListener { _, what, extra ->
+                        Log.e("MyService", "Error $what, $extra")
+                        true
+                    }
+                    prepareAsync()
+                }
+            } else if (!mediaPlayer!!.isPlaying) {
+                mediaPlayer?.start()
+                showNotification("Now playing")
+            }
+        } catch (e: Exception) {
+            Log.e("MyService", "Error starting music", e)
+            stopSelf()
         }
     }
 
     private fun stopMusic() {
-        soundPlayer?.run {
-            if (isPlaying) {
-                stop()
-                release()
-                soundPlayer = null
-                stopForeground(true)
-                stopSelf()
-                showMusicStoppedMessage()
-            }
-        }
+        mediaPlayer?.pause()
+        showNotification("Music paused")
     }
 
-    private fun showMusicStoppedMessage() {
-        Toast.makeText(this, "Музыка остановлена", Toast.LENGTH_SHORT).show()
-        Log.i("MyService", "Музыка остановлена")
+    private fun showNotification(text: String) {
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Music Player")
+            .setContentText(text)
+            .setSmallIcon(R.drawable.music_icon)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     override fun onDestroy() {
-        cleanupMediaPlayer()
-        showServiceStoppedMessage()
+        mediaPlayer?.release()
+        stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
-    }
-
-    private fun cleanupMediaPlayer() {
-        soundPlayer?.run {
-            stop()
-            release()
-        }
-    }
-
-    private fun showServiceStoppedMessage() {
-        Toast.makeText(this, "Сервис остановлен", Toast.LENGTH_SHORT).show()
-        Log.i("MyService", "Сервис остановлен...")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

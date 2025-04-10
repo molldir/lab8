@@ -1,79 +1,100 @@
 package com.example.lab8
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.MediaPlayer
+import android.os.Build
 import android.os.Bundle
-import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 
 class MainActivity : AppCompatActivity() {
     private lateinit var randomCharacterEditText: EditText
     private lateinit var broadcastReceiver: BroadcastReceiver
     private lateinit var serviceIntent: Intent
-    private lateinit var mediaPlayer: MediaPlayer
-    private lateinit var buttonStopMusic: Button
+    private lateinit var musicIntent: Intent
+    private var mediaPlayer: MediaPlayer? = null
 
     companion object {
         const val ACTION_TAG = "my.custom.action.tag.lab6"
+        private const val NOTIFICATION_PERMISSION_CODE = 100
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        randomCharacterEditText = findViewById(R.id.editText_randomCharacter)
-        val startButton: Button = findViewById(R.id.button_start)
-        val endButton: Button = findViewById(R.id.button_end)
-        val musicButton: Button = findViewById(R.id.button_music)
-        buttonStopMusic = findViewById(R.id.button_stop_music)
-
-        serviceIntent = Intent(this, RandomCharacterService::class.java)
-
-        startButton.setOnClickListener(::onClick)
-        endButton.setOnClickListener(::onClick)
-        musicButton.setOnClickListener(::onClickMusic)
-        buttonStopMusic.setOnClickListener(::onClickStopMusic)
-
-        broadcastReceiver = MyBroadcastReceiver()
-
-        mediaPlayer = MediaPlayer.create(this, R.raw.song)
+        initViews()
+        setupIntents()
+        setupMediaPlayer()
+        setupBroadcastReceiver()
+        requestNotificationPermission()
     }
 
-    fun onClick(view: View) {
-        when (view.id) {
-            R.id.button_start -> startService(serviceIntent)
-            R.id.button_end -> {
-                stopService(serviceIntent)
-                randomCharacterEditText.text = null
+    private fun initViews() {
+        randomCharacterEditText = findViewById(R.id.editText_randomCharacter)
+        findViewById<Button>(R.id.button_start).setOnClickListener { startService(serviceIntent) }
+        findViewById<Button>(R.id.button_end).setOnClickListener {
+            stopService(serviceIntent)
+            randomCharacterEditText.text = null
+        }
+        findViewById<Button>(R.id.button_music).setOnClickListener { startService(musicIntent) }
+        findViewById<Button>(R.id.button_stop_music).setOnClickListener {
+            val stopIntent = Intent(this, MyService::class.java).apply {
+                action = MyService.ACTION_STOP
+            }
+            startService(stopIntent)
+        }
+    }
+
+
+
+    private fun setupIntents() {
+        serviceIntent = Intent(this, RandomCharacterService::class.java)
+        musicIntent = Intent(this, MyService::class.java)
+    }
+
+    private fun setupMediaPlayer() {
+        mediaPlayer = MediaPlayer.create(this, R.raw.top_song).apply {
+            setOnErrorListener { _, _, _ ->
+                Toast.makeText(this@MainActivity, "Playback error", Toast.LENGTH_SHORT).show()
+                true
             }
         }
     }
 
-    fun onClickMusic(view: View) {
-        if (!mediaPlayer.isPlaying) {
-            mediaPlayer.start()
+    private fun setupBroadcastReceiver() {
+        broadcastReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val data = intent.getCharExtra("randomCharacter", '?')
+                randomCharacterEditText.setText(data.toString())
+            }
         }
     }
 
-    fun onClickStopMusic(view: View) {
-        if (mediaPlayer.isPlaying) {
-            mediaPlayer.stop()
-            mediaPlayer.prepareAsync()
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                NOTIFICATION_PERMISSION_CODE
+            )
         }
     }
 
     override fun onStart() {
         super.onStart()
-        val intentFilter = IntentFilter(ACTION_TAG).apply {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                priority = 0
-            }
+        val intentFilter = IntentFilter(ACTION_TAG)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(broadcastReceiver, intentFilter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(broadcastReceiver, intentFilter)
         }
-        registerReceiver(broadcastReceiver, intentFilter, Context.RECEIVER_EXPORTED)
     }
 
     override fun onStop() {
@@ -83,13 +104,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        mediaPlayer.release()
+        mediaPlayer?.release()
     }
 
-    inner class MyBroadcastReceiver : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val data = intent.getCharExtra("randomCharacter", '?')
-            randomCharacterEditText.text = data.toString()
-        }
-    }
 }
